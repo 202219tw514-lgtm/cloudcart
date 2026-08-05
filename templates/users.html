@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2 class="mb-4">
+
+Users
+
+</h2>
+
+<table class="table table-hover table-striped shadow">
+
+<thead class="table-dark">
+
+<tr>
+
+<th>ID</th>
+<th>Name</th>
+<th>Email</th>
+<th>Edit</th>
+<th>Delete</th>
+
+</tr>
+
+</thead>
+<tbody>
+
+{% for user in users %}
+
+<tr>
+
+<td>{{ user[0] }}</td>
+
+<td>{{ user[1] }}</td>
+
+<td>{{ user[2] }}</td>
+
+<td>
+
+<a href="/edit-user/{{ user[0] }}"
+class="btn btn-primary btn-sm">
+
+<i class="bi bi-pencil"></i>
+
+</a>
+
+</td>
+
+<td>
+
+<a href="/delete-user/{{ user[0] }}"
+class="btn btn-danger btn-sm"
+onclick="return confirm('Delete this user?')">
+
+<i class="bi bi-trash"></i>
+
+</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+{% endblock %}

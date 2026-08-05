@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2 class="mb-4">Shopping Cart</h2>
+
+{% for item in items %}
+
+<div class="card shadow-sm mb-3">
+
+<div class="card-body">
+
+<div class="row align-items-center">
+
+<div class="col-md-2">
+
+<img src="{{ url_for('static',
+filename='images/' + item[5]) }}"
+class="img-fluid">
+
+</div>
+
+<div class="col-md-4">
+
+<h5>{{ item[1] }}</h5>
+
+<p>Price : ₹{{ item[2] }}</p>
+
+</div>
+
+<div class="col-md-2 text-center">
+
+<p class="mb-2"><strong>Quantity</strong></p>
+
+<div class="d-flex justify-content-center align-items-center">
+
+    <a href="/decrease-cart/{{ item[0] }}"
+       class="btn btn-outline-danger btn-sm">
+
+        <i class="bi bi-dash"></i>
+
+    </a>
+
+    <span class="mx-3 fw-bold fs-5">
+
+        {{ item[3] }}
+
+    </span>
+
+    <a href="/increase-cart/{{ item[0] }}"
+       class="btn btn-outline-success btn-sm">
+
+        <i class="bi bi-plus"></i>
+
+    </a>
+
+</div>
+
+</div>
+
+<div class="col-md-2">
+
+<strong>
+
+₹{{ item[4] }}
+
+</strong>
+
+</div>
+
+<div class="col-md-2">
+
+<a href="/remove-cart/{{ item[0] }}"
+class="btn btn-danger">
+
+Remove
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+{% endfor %}
+<hr>
+
+<div class="row justify-content-end">
+
+    <div class="col-md-4">
+
+        <div class="card shadow">
+
+            <div class="card-body">
+
+                <h4>Order Summary</h4>
+
+                <hr>
+
+                <h5>
+                 Total :
+                 ₹{{ total }}
+                </h5>
+
+                <form action="/checkout" method="POST">
+
+                    <button
+                        class="btn btn-success w-100 mt-3">
+
+                        Proceed to Checkout
+
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div> 
+{% endblock %}

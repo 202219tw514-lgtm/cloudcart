@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>CloudCart</title>
+
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+
+
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+
+    <div class="container">
+
+      <a class="navbar-brand fw-bold fs-3" href="/">
+    <i class="bi bi-bag-fill text-warning"></i>
+    <span class="text-white">Cloud</span><span class="text-warning">Cart</span>
+</a>
+
+        <button class="navbar-toggler"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarNav">
+
+            <span class="navbar-toggler-icon"></span>
+
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+
+    <ul class="navbar-nav me-auto">
+
+    <li class="nav-item">
+        <a class="nav-link active" href="/">Home</a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link" href="#products">Products</a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link" href="#contact">Contact</a>
+    </li>
+
+    {% if "user_id" in session %}
+
+    <li class="nav-item">
+        <a class="nav-link" href="/cart">Cart</a>
+    </li>
+
+
+    {% endif %}
+
+</ul>
+
+            <form class="d-flex me-3" action="/search" method="GET">
+
+    <div class="input-group">
+
+        <span class="input-group-text bg-white border-end-0">
+    <i class="bi bi-search"></i>
+</span>
+
+<input
+    type="text"
+    name="query"
+    class="form-control border-start-0"
+    placeholder="Search Products">
+
+</div>
+</form>
+
+{% if "user_id" in session %}
+
+<div class="dropdown">
+
+    <button class="btn btn-outline-light dropdown-toggle"
+            type="button"
+            data-bs-toggle="dropdown">
+
+        👤 {{ session["user_name"] }}
+
+    </button>
+
+    <ul class="dropdown-menu dropdown-menu-end shadow">
+
+        <li>
+            <a class="dropdown-item" href="/my-orders">
+    My Orders
+</a>
+        </li>
+
+       
+
+        <li><hr class="dropdown-divider"></li>
+
+        <li>
+            <a class="dropdown-item text-danger"
+               href="/logout">
+                Logout
+            </a>
+        </li>
+
+    </ul>
+
+</div>
+
+{% else %}
+
+<a class="btn btn-warning"
+   href="/login">
+   Login /Signup
+</a>
+
+{% endif %}
+
+        </div>
+
+    </div>
+
+</nav>
+
+<div class="container mt-4">
+
+    {% block content %}
+    {% endblock %}
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+<footer id="contact" class="bg-dark text-white mt-5 py-5">
+
+<div class="container">
+
+<div class="row">
+
+<div class="col-md-4">
+
+<h4>CloudCart</h4>
+
+<p>Your trusted electronics store.</p>
+
+</div>
+
+<div class="col-md-4">
+
+<h5>Quick Links</h5>
+
+<a href="/" class="text-white d-block">Home</a>
+
+<a href="#products" class="text-white d-block">Products</a>
+
+</div>
+
+<div class="col-md-4">
+
+<h5>Contact</h5>
+
+<p>Email : support@cloudcart.com</p>
+
+<p>Phone : +91-9876543210</p>
+
+{% if session.get("is_admin") %}
+
+<a href="/admin"
+class="text-warning">
+
+Admin Panel
+
+</a>
+
+{% endif %}
+
+</div>
+
+</div>
+
+<hr>
+
+<p class="text-center mb-0">
+
+© 2026 CloudCart | Built with Flask & Bootstrap
+
+</p>
+
+</div>
+
+</footer>
+</html>

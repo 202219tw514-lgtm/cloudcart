@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="bg-primary text-white rounded-4 py-4 px-5 mb-5">
+
+    <h1>Welcome to CloudCart</h1>
+
+    <p>
+        Shop the latest electronics at the best prices.
+    </p>
+    <br>
+<div class="row text-center mb-5">
+
+<div class="col-md-4">
+
+<h3>🚚</h3>
+
+<h5>Fast Delivery</h5>
+
+<p>Delivered across India</p>
+
+</div>
+
+<div class="col-md-4">
+
+<h3>🔒</h3>
+
+<h5>Secure Payment</h5>
+
+<p>100% Safe Transactions</p>
+
+</div>
+
+<div class="col-md-4">
+
+<h3>⭐</h3>
+
+<h5>Quality Products</h5>
+
+<p>Trusted Brands</p>
+
+</div>
+
+</div>
+</div>
+
+<div id="products" class="d-flex justify-content-between align-items-center mb-4">
+
+    <h2>Products</h2>
+
+    <form method="GET">
+
+        <select
+            name="sort"
+            class="form-select"
+            onchange="this.form.submit()">
+
+            <option value="">Sort By</option>
+
+            <option value="low">
+                Price : Low → High
+            </option>
+
+            <option value="high">
+                Price : High → Low
+            </option>
+
+            <option value="az">
+                Name : A → Z
+            </option>
+
+            <option value="za">
+                Name : Z → A
+            </option>
+
+        </select>
+
+    </form>
+
+</div>
+
+
+
+
+<div class="row">
+
+{% for product in products %}
+
+<div class="col-lg-4 col-md-6 mb-4">
+
+    <div class="card shadow-sm h-100 border-0 rounded-4">
+
+    <a href="/product/{{ product[0] }}"
+       class="text-decoration-none text-dark">
+
+        <img src="{{ url_for('static', filename='images/' + product[4]) }}"
+             class="card-img-top p-3"
+             style="height:250px; object-fit:contain;">
+
+        <div class="card-body">
+
+            <h5 class="fw-bold">
+                {{ product[1] }}
+            </h5>
+
+            <p class="text-warning mb-2">
+                ★★★★☆ <span class="text-dark">4.5</span>
+            </p>
+
+            <p class="text-muted">
+                {{ product[2] }}
+            </p>
+
+            <h4 class="text-success fw-bold">
+                ₹{{ product[3] }}
+            </h4>
+
+        </div>
+
+    </a>
+
+    <div class="card-footer bg-white border-0">
+
+        {% if product[5] > 0 %}
+
+        <a href="/add-to-cart/{{ product[0] }}"
+           class="btn btn-primary w-100">
+
+            Add To Cart
+
+        </a>
+
+        {% else %}
+
+        <button class="btn btn-secondary w-100" disabled>
+
+            Out Of Stock
+
+        </button>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+{% endblock %}

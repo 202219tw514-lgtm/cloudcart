@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2 class="mb-4">My Orders</h2>
+
+{% if orders %}
+
+{% for order in orders %}
+
+<div class="card shadow-sm mb-3">
+
+    <div class="card-body">
+
+        <div class="row align-items-center">
+
+            <div class="col-md-2">
+
+                <img
+                    src="{{ url_for('static', filename='images/' + order[2]) }}"
+                    class="img-fluid"
+                    style="height:120px; object-fit:contain;">
+
+            </div>
+
+            <div class="col-md-4">
+
+                <h5>{{ order[1] }}</h5>
+
+                <p>
+                    Quantity :
+                    {{ order[3] }}
+                </p>
+
+            </div>
+
+            <div class="col-md-2">
+
+                <strong>
+                    ₹{{ order[4] }}
+                </strong>
+
+            </div>
+
+            <div class="col-md-2">
+
+                <strong>
+                    Total :
+                    ₹{{ order[5] }}
+                </strong>
+
+            </div>
+
+            <div class="col-md-2">
+
+                <small>
+                    {{ order[6] }}
+                </small>
+
+                <br><br>
+
+                <span class="badge bg-success">
+                    Placed
+                </span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endfor %}
+
+{% else %}
+
+<div class="alert alert-info">
+    You haven't placed any orders yet.
+</div>
+
+{% endif %}
+
+{% endblock %}

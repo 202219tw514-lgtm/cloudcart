@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2 class="mb-4">
+    Admin Dashboard
+</h2>
+
+<div class="row">
+
+    <div class="col-md-3 mb-4">
+
+        <div class="card text-center shadow border-0">
+
+            <div class="card-body">
+
+                <h1>📦</h1>
+
+                <h5>Total Products</h5>
+
+                <h2>{{ total_products }}</h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3 mb-4">
+
+        <div class="card text-center shadow border-0">
+
+            <div class="card-body">
+
+                <h1>👥</h1>
+
+                <h5>Total Users</h5>
+
+                <h2>{{ total_users }}</h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3 mb-4">
+
+        <div class="card text-center shadow border-0">
+
+            <div class="card-body">
+
+                <h1>🛒</h1>
+
+                <h5>Total Orders</h5>
+
+                <h2>{{ total_orders }}</h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3 mb-4">
+
+        <div class="card text-center shadow border-0">
+
+            <div class="card-body">
+
+                <h1>💰</h1>
+
+                <h5>Revenue</h5>
+
+                <h2>₹{{ revenue }}</h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<hr>
+
+<div class="row">
+
+    <div class="col-md-4">
+
+        <a href="/admin-products" class="btn btn-primary w-100 mb-3">
+
+            📦 Manage Products
+
+        </a>
+
+    </div>
+
+    <div class="col-md-4">
+
+        <a href="/add-product" class="btn btn-success w-100 mb-3">
+
+            ➕ Add Product
+
+        </a>
+
+    </div>
+
+    <div class="col-md-4">
+
+        <a href="/users" class="btn btn-warning w-100 mb-3">
+
+            👥 View Users
+
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}

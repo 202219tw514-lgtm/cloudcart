@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row justify-content-center mt-4">
+
+    <div class="col-md-7">
+
+        <div class="card shadow border-0 rounded-4">
+
+            <div class="card-body p-5">
+
+                <h2 class="text-center mb-4">
+                    Edit Product
+                </h2>
+
+                <form method="POST">
+
+                    <div class="mb-3">
+                        <label class="form-label">Product Name</label>
+                        <input
+                            type="text"
+                            name="name"
+                            class="form-control"
+                            value="{{ product[1] }}"
+                            required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea
+                            name="description"
+                            class="form-control"
+                            rows="3"
+                            required>{{ product[2] }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Price</label>
+                        <input
+                            type="number"
+                            name="price"
+                            class="form-control"
+                            value="{{ product[3] }}"
+                            required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Stock</label>
+                        <input
+                            type="number"
+                            name="stock"
+                            class="form-control"
+                            value="{{ product[5] }}"
+                            required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Image Filename</label>
+                        <input
+                            type="text"
+                            name="image"
+                            class="form-control"
+                            value="{{ product[4] }}"
+                            placeholder="Example: headphones.jpg"
+                            required>
+
+                        <div class="form-text">
+                            Image must be inside <strong>static/images/</strong>.
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary w-100">
+                        Update Product
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

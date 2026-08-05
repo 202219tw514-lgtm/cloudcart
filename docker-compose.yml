@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: cloudcart-mysql
+    restart: always
+
+    environment:
+      MYSQL_ROOT_PASSWORD: Si@s!dhu7451
+      MYSQL_DATABASE: ecommerce
+
+    ports:
+      - "3306:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  flask:
+    build: .
+    container_name: cloudcart-app
+    restart: always
+
+    ports:
+      - "5000:5000"
+
+    depends_on:
+      - mysql
+
+volumes:
+  mysql_data:
