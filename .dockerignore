@@ -1,4 +1,8 @@
+.venv/
+venv/
 __pycache__/
 *.pyc
-venv/
+.git
+.gitignore
 .env
+cloudcart-key.pem
