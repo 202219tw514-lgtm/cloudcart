@@ -94,7 +94,7 @@
     <a href="/product/{{ product[0] }}"
        class="text-decoration-none text-dark">
 
-        <img src="{{ url_for('static', filename='images/' + product[4]) }}"
+        <img src="{{ s3_bucket }}/{{ product[4] }}"
              class="card-img-top p-3"
              style="height:250px; object-fit:contain;">
 

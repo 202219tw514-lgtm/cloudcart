@@ -5,7 +5,7 @@ load_dotenv()
 from flask import Flask, render_template, request, redirect, session
 import mysql.connector
 app = Flask(__name__)
-
+S3_BUCKET_URL = "https://cloudcart-images-sidharth-2026.s3.ap-south-1.amazonaws.com"
 app.secret_key = os.getenv("SECRET_KEY")
 
 db = mysql.connector.connect(
@@ -41,8 +41,9 @@ def home():
     products = cursor.fetchall()
 
     return render_template(
-        "index.html",
-        products=products
+    "index.html",
+    products=products,
+    s3_bucket=S3_BUCKET_URL
     )
 
 @app.route("/login", methods=["GET", "POST"])
