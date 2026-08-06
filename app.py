@@ -639,7 +639,8 @@ def product_details(product_id):
 
     return render_template(
         "product_details.html",
-        product=product
+        product=product,
+        s3_bucket=S3_BUCKET_URL
     )
 
 if __name__ == "__main__":
