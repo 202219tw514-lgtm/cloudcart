@@ -6,8 +6,7 @@
 
     <div class="col-md-6">
 
-        <img src="{{ url_for('static',
-        filename='images/' + product[4]) }}"
+        <img src="{{ s3_bucket }}/{{ product[4] }}",
         class="img-fluid rounded shadow">
 
     </div>
