@@ -41,9 +41,9 @@ def home():
     products = cursor.fetchall()
 
     return render_template(
-    "index.html",
-    products=products,
-    s3_bucket=S3_BUCKET_URL
+        "index.html",
+        products=products,
+        s3_bucket=S3_BUCKET_URL
     )
 
 @app.route("/login", methods=["GET", "POST"])
