@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, flash
+from werkzeug.security import generate_password_hash, check_password_hash
 import mysql.connector
 app = Flask(__name__)
 S3_BUCKET_URL ="https://dnj1c6rpjfrz9.cloudfront.net"
@@ -56,28 +57,27 @@ def login():
 
         sql = """
         SELECT * FROM users
-        WHERE email=%s AND password=%s
+        WHERE email=%s
         """
 
-        values = (email, password)
-
-        cursor.execute(sql, values)
-
+        cursor.execute(sql, (email,))
         user = cursor.fetchone()
 
-       
+        if user and check_password_hash(user[3], password):
 
-        if user:
+            session["user_id"] = user[0]
+            session["user_name"] = user[1]
+            session["is_admin"] = user[5]
 
-         session["user_id"] = user[0]
-         session["user_name"] = user[1]
-         session["is_admin"] = user[5]
+            flash("Login successful!", "success")
 
-         return redirect("/")
+            return redirect("/")
 
         else:
 
-         return "Invalid Email or Password"
+            flash("Invalid email or password.", "danger")
+
+            return redirect("/login")
 
     return render_template("login.html")
 
@@ -85,10 +85,12 @@ def login():
 def admin():
 
     if "user_id" not in session:
+        flash("Please login to access the admin panel.", "warning")
         return redirect("/login")
 
     if not session.get("is_admin"):
-        return "Access Denied", 403
+        flash("Access denied. Admin privileges are required.", "danger")
+        return redirect("/")
 
     # Total Users
     cursor.execute("SELECT COUNT(*) FROM users")
@@ -117,6 +119,15 @@ def admin():
         revenue=revenue
     )
 
+@app.route("/logout")
+def logout():
+
+    session.clear()
+
+    flash("You have been logged out successfully.", "success")
+
+    return redirect("/")
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
 
@@ -126,18 +137,21 @@ def register():
         email = request.form["email"]
         password = request.form["password"]
 
+        password_hash = generate_password_hash(password)
+
         sql = """
-        INSERT INTO users(name,email,password)
-        VALUES (%s,%s,%s)
+        INSERT INTO users(name, email, password)
+        VALUES (%s, %s, %s)
         """
 
-        values = (name, email, password)
+        values = (name, email, password_hash)
 
         cursor.execute(sql, values)
-
         db.commit()
 
-        return "User Registered Successfully!"
+        flash("Account created successfully! Please login.", "success")
+
+        return redirect("/login")
 
     return render_template("register.html")
 
@@ -330,7 +344,9 @@ def users():
         return redirect("/login")
 
     if not session.get("is_admin"):
-        return "Access Denied", 403
+       if not session.get("is_admin"):
+           flash("Access denied. Admin privileges are required.", "danger")
+           return redirect("/")
 
     cursor.execute(
         "SELECT * FROM users"
@@ -341,6 +357,57 @@ def users():
     return render_template(
         "users.html",
         users=users
+    )
+
+@app.route("/edit-user/<int:user_id>", methods=["GET", "POST"])
+def edit_user(user_id):
+
+    # Check login
+    if "user_id" not in session:
+        flash("Please login to access this page.", "warning")
+        return redirect("/login")
+
+    # Check admin
+    if not session.get("is_admin"):
+        flash("Access denied. Admin privileges are required.", "danger")
+        return redirect("/")
+
+    # Get existing user
+    cursor.execute(
+        "SELECT * FROM users WHERE id=%s",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if not user:
+        flash("User not found.", "danger")
+        return redirect("/users")
+
+    if request.method == "POST":
+
+        name = request.form["name"]
+        email = request.form["email"]
+        is_admin = request.form.get("is_admin", 0)
+
+        cursor.execute(
+            """
+            UPDATE users
+            SET name=%s, email=%s, is_admin=%s
+            WHERE id=%s
+            """,
+            (name, email, is_admin, user_id)
+        )
+
+        db.commit()
+
+        flash("User updated successfully!", "success")
+
+        return redirect("/users")
+
+    return render_template(
+        "edit_user.html",
+        user=user
     )
 
 @app.route("/add-to-cart/<int:product_id>")
@@ -597,14 +664,6 @@ def my_orders():
         "my_orders.html",
         orders=orders
     )
-
-
-@app.route("/logout")
-def logout():
-
-    session.clear()
-
-    return redirect("/")
 
 @app.route("/search")
 def search():

@@ -83,3 +83,15 @@ body{
     font-weight:bold;
 
 }
+/* Flash message notifications */
+.flash-container {
+    position: fixed;
+    top: 90px;
+    right: 25px;
+    width: 350px;
+    z-index: 9999;
+}
+
+.flash-container .alert {
+    margin-bottom: 10px;
+}
