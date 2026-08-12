@@ -3,3 +3,6 @@ mysql-connector-python
 gunicorn
 python-dotenv
 upstash-redis
+razorpay
+scikit-learn
+boto3
