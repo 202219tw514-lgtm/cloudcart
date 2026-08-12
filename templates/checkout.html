@@ -1,27 +1,150 @@
 <!DOCTYPE html>
 <html>
+
 <head>
+
     <title>Checkout</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+
 </head>
+
 <body>
 
-<h1>Checkout</h1>
+<div class="container mt-5">
 
-<p>
+    <div class="row justify-content-center">
 
-Review your cart and place order.
+        <div class="col-md-6">
 
-</p>
+            <div class="card shadow border-0 rounded-4">
 
-<form method="POST">
+                <div class="card-body p-4 text-center">
 
-<button type="submit">
+                    <h1 class="mb-4">
+                        Checkout
+                    </h1>
 
-Place Order
+                    <p class="text-muted">
+                        Review your cart and proceed with payment.
+                    </p>
 
-</button>
+                    <h3 class="text-success fw-bold mb-4">
+                        ₹{{ "%.2f"|format(amount / 100) }}
+                    </h3>
 
-</form>
+                    {% if razorpay_order_id %}
+
+                    <button
+                        id="pay-button"
+                        class="btn btn-primary btn-lg w-100">
+
+                        Pay Now
+
+                    </button>
+
+                    {% else %}
+
+                    <form method="POST">
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary btn-lg w-100">
+
+                            Proceed to Payment
+
+                        </button>
+
+                    </form>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+{% if razorpay_order_id %}
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+
+var options = {
+
+    "key": "{{ razorpay_key }}",
+
+    "amount": "{{ amount }}",
+
+    "currency": "INR",
+
+    "name": "CloudCart",
+
+    "description": "CloudCart Order",
+
+    "order_id": "{{ razorpay_order_id }}",
+
+    "handler": function (response) {
+
+        var form = document.createElement("form");
+
+        form.method = "POST";
+        form.action = "/payment-success";
+
+        var paymentId = document.createElement("input");
+        paymentId.type = "hidden";
+        paymentId.name = "razorpay_payment_id";
+        paymentId.value = response.razorpay_payment_id;
+
+        var orderId = document.createElement("input");
+        orderId.type = "hidden";
+        orderId.name = "razorpay_order_id";
+        orderId.value = response.razorpay_order_id;
+
+        var signature = document.createElement("input");
+        signature.type = "hidden";
+        signature.name = "razorpay_signature";
+        signature.value = response.razorpay_signature;
+
+        form.appendChild(paymentId);
+        form.appendChild(orderId);
+        form.appendChild(signature);
+
+        document.body.appendChild(form);
+
+        form.submit();
+    },
+
+    "theme": {
+        "color": "#0d6efd"
+    }
+
+};
+
+var rzp = new Razorpay(options);
+
+document.getElementById("pay-button").onclick = function(e) {
+
+    rzp.open();
+
+    e.preventDefault();
+
+};
+
+</script>
+
+{% endif %}
 
 </body>
+
 </html>

@@ -44,10 +44,62 @@
 
 </div>
 </div>
+{% if recommendations %}
+
+<div class="mb-5">
+
+    <h2 class="mb-4">
+        Recommended For You
+    </h2>
+
+    <div class="row">
+
+        {% for product in recommendations %}
+
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+
+            <div class="card shadow-sm h-100 border-0 rounded-4">
+
+                <a href="/product/{{ product[0] }}"
+                   class="text-decoration-none text-dark">
+
+                    <img src="{{ s3_bucket }}/{{ product[4] }}"
+                         class="card-img-top p-3 product-image">
+
+                    <div class="card-body">
+
+                        <h5 class="fw-bold">
+                            {{ product[1] }}
+                        </h5>
+
+                        <p class="text-warning mb-2">
+                            ★★★★☆
+                            <span class="text-dark">4.5</span>
+                        </p>
+
+                        <h4 class="text-success fw-bold">
+                            ₹{{ product[3] }}
+                        </h4>
+
+                    </div>
+
+                </a>
+
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+{% endif %}
 
 <div id="products" class="d-flex justify-content-between align-items-center mb-4">
 
-    <h2 id="products">Products</h2>
+    <h2>Products</h2>
 
     <form method="GET">
 
@@ -95,8 +147,7 @@
        class="text-decoration-none text-dark">
 
         <img src="{{ s3_bucket }}/{{ product[4] }}"
-             class="card-img-top p-3"
-             style="height:250px; object-fit:contain;">
+         class="card-img-top p-3 product-image">
 
         <div class="card-body">
             
@@ -109,9 +160,7 @@
                 ★★★★☆ <span class="text-dark">4.5</span>
             </p>
 
-            <p class="text-muted">
-                {{ product[2] }}
-            </p>
+           
 
             <h4 class="text-success fw-bold">
                 ₹{{ product[3] }}
@@ -151,5 +200,63 @@
 {% endfor %}
 
 </div>
+{% if total_pages > 1 %}
 
+<nav class="mt-4 mb-5">
+
+    <ul class="pagination justify-content-center">
+
+        {% if page > 1 %}
+
+        <li class="page-item">
+
+            <a class="page-link"
+               href="?page={{ page - 1 }}{% if sort %}&sort={{ sort }}{% endif %}">
+
+                ← Previous
+
+            </a>
+
+        </li>
+
+        {% endif %}
+
+
+        {% for p in range(1, total_pages + 1) %}
+
+        <li class="page-item {% if p == page %}active{% endif %}">
+
+            <a class="page-link"
+               href="?page={{ p }}{% if sort %}&sort={{ sort }}{% endif %}">
+
+                {{ p }}
+
+            </a>
+
+        </li>
+
+        {% endfor %}
+
+
+        {% if page < total_pages %}
+
+        <li class="page-item">
+
+            <a class="page-link"
+               href="?page={{ page + 1 }}{% if sort %}&sort={{ sort }}{% endif %}">
+
+                Next →
+
+            </a>
+
+        </li>
+
+        {% endif %}
+
+    </ul>
+
+</nav>
+
+{% endif %}
 {% endblock %}
+

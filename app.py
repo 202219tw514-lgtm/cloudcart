@@ -1,9 +1,21 @@
 import os
 from dotenv import load_dotenv
-
+from upstash_redis import Redis
+import razorpay,json
 load_dotenv()
 from flask import Flask, render_template, request, redirect, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
+from recommendation import get_recommendations  
+redis = Redis(
+    url=os.getenv("UPSTASH_REDIS_REST_URL"),
+    token=os.getenv("UPSTASH_REDIS_REST_TOKEN")
+)
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+razorpay_client = razorpay.Client(
+    auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)
+)
 import mysql.connector
 app = Flask(__name__)
 S3_BUCKET_URL ="https://dnj1c6rpjfrz9.cloudfront.net"
@@ -18,33 +30,115 @@ db = mysql.connector.connect(
 
 cursor = db.cursor()
 
+def clear_product_cache():
+
+    sorts = [
+        "default",
+        "low",
+        "high",
+        "az",
+        "za"
+    ]
+
+    for sort in sorts:
+
+        for page in range(1, 100):
+
+            cache_key = f"products:{sort}:page:{page}"
+
+            redis.delete(cache_key)
+
+    print("Product cache cleared")
+
 @app.route("/")
 def home():
 
     sort = request.args.get("sort")
+    page = request.args.get("page", 1, type=int)
+    per_page = 6
+    offset = (page - 1) * per_page
+    
+    cache_key = f"products:{sort or 'default'}:page:{page}"
+    
+   
+    cached_products = redis.get(cache_key)
 
-    sql = "SELECT * FROM products"
+    if cached_products:
+        products = json.loads(cached_products)
 
-    if sort == "low":
-        sql += " ORDER BY price ASC"
+        print("Redis CACHE HIT")
 
-    elif sort == "high":
-        sql += " ORDER BY price DESC"
+    else:
+        print("Redis CACHE MISS")
 
-    elif sort == "az":
-        sql += " ORDER BY name ASC"
+        sql = "SELECT * FROM products"
 
-    elif sort == "za":
-        sql += " ORDER BY name DESC"
+        if sort == "low":
+            sql += " ORDER BY price ASC"
 
-    cursor.execute(sql)
+        elif sort == "high":
+            sql += " ORDER BY price DESC"
 
-    products = cursor.fetchall()
+        elif sort == "az":
+            sql += " ORDER BY name ASC"
+
+        elif sort == "za":
+            sql += " ORDER BY name DESC"
+
+        sql += " LIMIT %s OFFSET %s"
+
+        cursor.execute(sql, (per_page, offset))
+
+        products = cursor.fetchall()
+
+        # Convert database result to JSON-compatible format
+        products = [
+            list(product)
+            for product in products
+        ]
+
+        # Store in Redis for 5 minutes
+        redis.set(
+            cache_key,
+            json.dumps(products, default=str),
+            ex=300
+        )
+
+    cursor.execute("SELECT COUNT(*) FROM products")
+
+    total_products = cursor.fetchone()[0]
+
+    total_pages = (total_products + per_page - 1) // per_page
+    # ML recommendations
+    recommendations = []
+
+    if "user_id" in session:
+
+        recommendations = get_recommendations(
+            session["user_id"],
+            db
+        )
+
+    else:
+
+        cursor.execute("""
+            SELECT *
+            FROM products
+            ORDER BY id DESC
+            LIMIT 5
+        """)
+
+        recommendations = cursor.fetchall()
 
     return render_template(
-        "index.html",
-        products=products,
-        s3_bucket=S3_BUCKET_URL
+      "index.html",
+      products=products,
+      recommendations=recommendations,
+      s3_bucket=S3_BUCKET_URL,
+      page=page,
+      total_pages=total_pages,
+      sort=sort
+
     )
 
 @app.route("/login", methods=["GET", "POST"])
@@ -246,7 +340,8 @@ def add_product():
         )
 
         db.commit()
-
+        
+        clear_product_cache()
         return redirect("/admin-products")
 
     return render_template("add_product.html")
@@ -282,7 +377,7 @@ def delete_product(id):
     cursor.execute(sql, (id,))
 
     db.commit()
-
+    clear_product_cache()
     return redirect("/admin-products")
 
 @app.route("/edit-product/<int:id>", methods=["GET", "POST"])
@@ -322,7 +417,7 @@ def edit_product(id):
         cursor.execute(sql, values)
 
         db.commit()
-
+        clear_product_cache()
         return redirect("/admin-products")
 
     cursor.execute(
@@ -522,12 +617,10 @@ def checkout():
     if "user_id" not in session:
         return redirect("/login")
 
-    if request.method == "POST":
+    user_id = session["user_id"]
 
-        user_id = session["user_id"]
-
-        # Get all cart items
-        cursor.execute("""
+    
+    cursor.execute("""
         SELECT
             products.id,
             products.price,
@@ -536,95 +629,185 @@ def checkout():
         JOIN products
         ON cart.product_id = products.id
         WHERE cart.user_id=%s
-        """, (user_id,))
+    """, (user_id,))
 
-        cart_items = cursor.fetchall()
+    cart_items = cursor.fetchall()
 
-        # Check if cart is empty
-        if not cart_items:
-            return "Your cart is empty."
+    
+    if not cart_items:
+        flash("Your cart is empty.", "warning")
+        return redirect("/cart")
 
-        total_amount = 0
+    total_amount = 0
 
-        # Validate stock and calculate total
-        for item in cart_items:
+    
+    for item in cart_items:
 
-            cursor.execute(
-                "SELECT stock FROM products WHERE id=%s",
-                (item[0],)
-            )
-
-            stock = cursor.fetchone()[0]
-
-            if item[2] > stock:
-                return f"Only {stock} item(s) available in stock."
-
-            total_amount += item[1] * item[2]
-
-        # Create order
         cursor.execute(
-            """
-            INSERT INTO orders
-            (user_id, total_amount)
-            VALUES (%s, %s)
-            """,
-            (user_id, total_amount)
+            "SELECT stock FROM products WHERE id=%s",
+            (item[0],)
         )
 
-        db.commit()
+        stock = cursor.fetchone()[0]
 
-        order_id = cursor.lastrowid
-
-        # Save order items and reduce stock
-        for item in cart_items:
-
-            cursor.execute(
-                """
-                INSERT INTO order_items
-                (
-                    order_id,
-                    product_id,
-                    quantity,
-                    price
-                )
-                VALUES (%s,%s,%s,%s)
-                """,
-                (
-                    order_id,
-                    item[0],
-                    item[2],
-                    item[1]
-                )
+        if item[2] > stock:
+            flash(
+                f"Only {stock} item(s) available in stock.",
+                "danger"
             )
+            return redirect("/cart")
 
-            cursor.execute(
-                """
-                UPDATE products
-                SET stock = stock - %s
-                WHERE id = %s
-                """,
-                (
-                    item[2],
-                    item[0]
-                )
-            )
+        total_amount += item[1] * item[2]
 
-        db.commit()
+    
+    amount_paise = int(total_amount * 100)
 
-        # Clear cart
-        cursor.execute(
-            """
-            DELETE FROM cart
-            WHERE user_id=%s
-            """,
-            (user_id,)
+    if request.method == "POST":
+
+        razorpay_order = razorpay_client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "payment_capture": 1
+        })
+
+        return render_template(
+            "checkout.html",
+            razorpay_key=RAZORPAY_KEY_ID,
+            razorpay_order_id=razorpay_order["id"],
+            amount=amount_paise
         )
 
-        db.commit()
+    return render_template(
+        "checkout.html",
+        razorpay_key=RAZORPAY_KEY_ID,
+        razorpay_order_id=None,
+        amount=amount_paise
+    )
 
-        return redirect("/order-success")
+@app.route("/payment-success", methods=["POST"])
+def payment_success():
 
-    return render_template("checkout.html")
+    if "user_id" not in session:
+        return redirect("/login")
+
+    payment_id = request.form.get("razorpay_payment_id")
+    razorpay_order_id = request.form.get("razorpay_order_id")
+    signature = request.form.get("razorpay_signature")
+
+    try:
+
+        razorpay_client.utility.verify_payment_signature({
+            "razorpay_order_id": razorpay_order_id,
+            "razorpay_payment_id": payment_id,
+            "razorpay_signature": signature
+        })
+
+    except Exception:
+
+        flash("Payment verification failed.", "danger")
+        return redirect("/checkout")
+
+    user_id = session["user_id"]
+
+    # Get cart again after successful payment
+    cursor.execute("""
+        SELECT
+            products.id,
+            products.price,
+            cart.quantity
+        FROM cart
+        JOIN products
+        ON cart.product_id = products.id
+        WHERE cart.user_id=%s
+    """, (user_id,))
+
+    cart_items = cursor.fetchall()
+
+    if not cart_items:
+        flash("Cart is empty.", "warning")
+        return redirect("/")
+
+    total_amount = 0
+
+    # Check stock again
+    for item in cart_items:
+
+        cursor.execute(
+            "SELECT stock FROM products WHERE id=%s",
+            (item[0],)
+        )
+
+        stock = cursor.fetchone()[0]
+
+        if item[2] > stock:
+            flash(
+                f"Only {stock} item(s) available in stock.",
+                "danger"
+            )
+            return redirect("/cart")
+
+        total_amount += item[1] * item[2]
+
+    # Create CloudCart order
+    cursor.execute(
+        """
+        INSERT INTO orders
+        (user_id, total_amount)
+        VALUES (%s, %s)
+        """,
+        (user_id, total_amount)
+    )
+
+    order_id = cursor.lastrowid
+
+    # Save order items and reduce stock
+    for item in cart_items:
+
+        cursor.execute(
+            """
+            INSERT INTO order_items
+            (
+                order_id,
+                product_id,
+                quantity,
+                price
+            )
+            VALUES (%s,%s,%s,%s)
+            """,
+            (
+                order_id,
+                item[0],
+                item[2],
+                item[1]
+            )
+        )
+
+        cursor.execute(
+            """
+            UPDATE products
+            SET stock = stock - %s
+            WHERE id = %s
+            """,
+            (
+                item[2],
+                item[0]
+            )
+        )
+
+    # Clear cart
+    cursor.execute(
+        """
+        DELETE FROM cart
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    db.commit()
+    clear_product_cache()
+    flash("Payment successful! Order placed successfully.", "success")
+
+    return redirect("/order-success")
 
 @app.route("/order-success")
 def order_success():
