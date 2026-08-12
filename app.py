@@ -1,7 +1,12 @@
 import os
 from dotenv import load_dotenv
+import time
 from upstash_redis import Redis
 import razorpay,json
+import secrets
+import smtplib
+from email.message import EmailMessage
+from datetime import datetime, timedelta
 load_dotenv()
 from flask import Flask, render_template, request, redirect, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -30,6 +35,68 @@ db = mysql.connector.connect(
 
 cursor = db.cursor()
 
+def send_otp_email(to_email, otp, purpose="login"):
+
+    sender_email = os.getenv("SMTP_EMAIL")
+    sender_password = os.getenv("SMTP_PASSWORD")
+
+    message = EmailMessage()
+
+    if purpose == "login":
+
+        message["Subject"] = "CloudCart Login Verification"
+
+        message.set_content(
+            f"""
+Hello,
+
+Your CloudCart login verification OTP is:
+
+{otp}
+
+This OTP will expire in 5 minutes.
+
+If you did not attempt to log in to your CloudCart account,
+please secure your account.
+
+Regards,
+CloudCart Team
+"""
+        )
+
+    else:
+
+        message["Subject"] = "CloudCart Password Reset OTP"
+
+        message.set_content(
+            f"""
+Hello,
+
+Your CloudCart password reset OTP is:
+
+{otp}
+
+This OTP will expire in 5 minutes.
+
+If you did not request a password reset, please ignore this email.
+
+Regards,
+CloudCart Team
+"""
+        )
+
+    message["From"] = sender_email
+    message["To"] = to_email
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+
+        smtp.login(
+            sender_email,
+            sender_password
+        )
+
+        smtp.send_message(message)
+
 def clear_product_cache():
 
     sorts = [
@@ -40,13 +107,16 @@ def clear_product_cache():
         "za"
     ]
 
-    for sort in sorts:
+    keys = []
 
+    for sort in sorts:
         for page in range(1, 100):
 
             cache_key = f"products:{sort}:page:{page}"
+            keys.append(cache_key)
 
-            redis.delete(cache_key)
+    if keys:
+        redis.delete(*keys)
 
     print("Product cache cleared")
 
@@ -141,6 +211,179 @@ def home():
 
     )
 
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+
+    if request.method == "POST":
+
+        email = request.form["email"]
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE email=%s
+            """,
+            (email,)
+        )
+
+        user = cursor.fetchone()
+
+        if not user:
+            flash(
+                "If that email is registered, an OTP has been sent.",
+                "info"
+            )
+            return redirect("/forgot-password")
+
+        # Generate 6-digit OTP
+        otp = str(secrets.randbelow(1000000)).zfill(6)
+
+        # OTP expires after 5 minutes
+        expiry = datetime.now() + timedelta(minutes=5)
+
+        cursor.execute(
+            """
+            UPDATE users
+            SET reset_otp=%s,
+                reset_otp_expiry=%s
+            WHERE email=%s
+            """,
+            (otp, expiry, email)
+        )
+
+        db.commit()
+
+        try:
+
+            send_otp_email(email, otp)
+
+        except Exception as e:
+
+            print("EMAIL ERROR:", e)
+
+            flash(
+                "Unable to send OTP. Please try again later.",
+                "danger"
+            )
+
+            return redirect("/forgot-password")
+
+        session["reset_email"] = email
+
+        flash(
+            "OTP sent to your email.",
+            "success"
+        )
+
+        return redirect("/verify-otp")
+
+    return render_template("forgot_password.html")
+
+@app.route("/verify-otp", methods=["GET", "POST"])
+def verify_otp():
+
+    email = session.get("reset_email")
+
+    if not email:
+        return redirect("/forgot-password")
+
+    if request.method == "POST":
+
+        otp = request.form["otp"]
+
+        cursor.execute(
+            """
+            SELECT reset_otp, reset_otp_expiry
+            FROM users
+            WHERE email=%s
+            """,
+            (email,)
+        )
+
+        user = cursor.fetchone()
+
+        if not user:
+            flash("Invalid request.", "danger")
+            return redirect("/forgot-password")
+
+        stored_otp = user[0]
+        expiry = user[1]
+
+        if not stored_otp or not expiry:
+            flash("OTP is invalid.", "danger")
+            return redirect("/forgot-password")
+
+        if datetime.now() > expiry:
+            flash(
+                "OTP has expired. Please request a new one.",
+                "danger"
+            )
+            return redirect("/forgot-password")
+
+        if otp != stored_otp:
+            flash(
+                "Invalid OTP.",
+                "danger"
+            )
+            return redirect("/verify-otp")
+
+        session["otp_verified"] = True
+
+        return redirect("/reset-password")
+
+    return render_template("verify_otp.html")
+
+@app.route("/reset-password", methods=["GET", "POST"])
+def reset_password():
+
+    email = session.get("reset_email")
+    otp_verified = session.get("otp_verified")
+
+    if not email or not otp_verified:
+        return redirect("/forgot-password")
+
+    if request.method == "POST":
+
+        password = request.form["password"]
+        confirm_password = request.form["confirm_password"]
+
+        if password != confirm_password:
+
+            flash(
+                "Passwords do not match.",
+                "danger"
+            )
+
+            return redirect("/reset-password")
+
+        password_hash = generate_password_hash(password)
+
+        cursor.execute(
+            """
+            UPDATE users
+            SET password=%s,
+                reset_otp=NULL,
+                reset_otp_expiry=NULL
+            WHERE email=%s
+            """,
+            (password_hash, email)
+        )
+
+        db.commit()
+
+        session.pop("reset_email", None)
+        session.pop("otp_verified", None)
+
+        flash(
+            "Password reset successfully. Please login.",
+            "success"
+        )
+
+        return redirect("/login")
+
+    return render_template("reset_password.html")
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
@@ -149,31 +392,172 @@ def login():
         email = request.form["email"]
         password = request.form["password"]
 
-        sql = """
-        SELECT * FROM users
-        WHERE email=%s
-        """
+        cursor.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE email=%s
+            """,
+            (email,)
+        )
 
-        cursor.execute(sql, (email,))
         user = cursor.fetchone()
 
         if user and check_password_hash(user[3], password):
 
-            session["user_id"] = user[0]
-            session["user_name"] = user[1]
-            session["is_admin"] = user[5]
+            # Generate 6-digit OTP
+            otp = str(secrets.randbelow(1000000)).zfill(6)
 
-            flash("Login successful!", "success")
+            # OTP expires after 5 minutes
+            expiry = datetime.now() + timedelta(minutes=5)
 
-            return redirect("/")
+            cursor.execute(
+                """
+                UPDATE users
+                SET reset_otp=%s,
+                    reset_otp_expiry=%s
+                WHERE id=%s
+                """,
+                (otp, expiry, user[0])
+            )
+
+            db.commit()
+
+            try:
+
+                send_otp_email(
+    user[2],
+    otp,
+    purpose="login"
+)
+
+            except Exception as e:
+
+                print("LOGIN OTP EMAIL ERROR:", e)
+
+                flash(
+                    "Unable to send verification code. Please try again.",
+                    "danger"
+                )
+
+                return redirect("/login")
+
+            # Store only temporary login information
+            session["login_otp_user_id"] = user[0]
+            session["login_otp_email"] = user[2]
+
+            flash(
+                "A verification code has been sent to your email.",
+                "success"
+            )
+
+            return redirect("/login-otp")
 
         else:
 
-            flash("Invalid email or password.", "danger")
+            flash(
+                "Invalid email or password.",
+                "danger"
+            )
 
             return redirect("/login")
 
     return render_template("login.html")
+
+@app.route("/login-otp", methods=["GET", "POST"])
+def login_otp():
+
+    user_id = session.get("login_otp_user_id")
+
+    if not user_id:
+        return redirect("/login")
+
+    if request.method == "POST":
+
+        otp = request.form["otp"]
+
+        cursor.execute(
+            """
+            SELECT
+                id,
+                name,
+                email,
+                is_admin,
+                reset_otp,
+                reset_otp_expiry
+            FROM users
+            WHERE id=%s
+            """,
+            (user_id,)
+        )
+
+        user = cursor.fetchone()
+
+        if not user:
+            flash("Invalid login request.", "danger")
+            return redirect("/login")
+
+        stored_otp = user[4]
+        expiry = user[5]
+
+        if not stored_otp or not expiry:
+
+            flash(
+                "OTP is invalid. Please login again.",
+                "danger"
+            )
+
+            return redirect("/login")
+
+        if datetime.now() > expiry:
+
+            flash(
+                "OTP has expired. Please login again.",
+                "danger"
+            )
+
+            return redirect("/login")
+
+        if otp != stored_otp:
+
+            flash(
+                "Invalid OTP.",
+                "danger"
+            )
+
+            return redirect("/login-otp")
+
+        # OTP verified successfully
+
+        session["user_id"] = user[0]
+        session["user_name"] = user[1]
+        session["is_admin"] = user[3]
+
+        # Remove OTP from database
+        cursor.execute(
+            """
+            UPDATE users
+            SET reset_otp=NULL,
+                reset_otp_expiry=NULL
+            WHERE id=%s
+            """,
+            (user_id,)
+        )
+
+        db.commit()
+
+        # Remove temporary login information
+        session.pop("login_otp_user_id", None)
+        session.pop("login_otp_email", None)
+
+        flash(
+            "Login successful!",
+            "success"
+        )
+
+        return redirect("/")
+
+    return render_template("login_otp.html")
 
 @app.route("/admin")
 def admin():
@@ -618,8 +1002,8 @@ def checkout():
         return redirect("/login")
 
     user_id = session["user_id"]
-
-    
+   # Start a fresh checkout
+    session.pop("delivery_details", None)
     cursor.execute("""
         SELECT
             products.id,
@@ -633,14 +1017,12 @@ def checkout():
 
     cart_items = cursor.fetchall()
 
-    
     if not cart_items:
         flash("Your cart is empty.", "warning")
         return redirect("/cart")
 
     total_amount = 0
 
-    
     for item in cart_items:
 
         cursor.execute(
@@ -659,10 +1041,27 @@ def checkout():
 
         total_amount += item[1] * item[2]
 
-    
     amount_paise = int(total_amount * 100)
 
     if request.method == "POST":
+
+        # Get delivery details
+        delivery_name = request.form.get("delivery_name")
+        delivery_phone = request.form.get("delivery_phone")
+        delivery_address = request.form.get("delivery_address")
+        delivery_city = request.form.get("delivery_city")
+        delivery_state = request.form.get("delivery_state")
+        delivery_pincode = request.form.get("delivery_pincode")
+
+        # Store delivery details temporarily in session
+        session["delivery_details"] = {
+            "name": delivery_name,
+            "phone": delivery_phone,
+            "address": delivery_address,
+            "city": delivery_city,
+            "state": delivery_state,
+            "pincode": delivery_pincode
+        }
 
         razorpay_order = razorpay_client.order.create({
             "amount": amount_paise,
@@ -686,7 +1085,8 @@ def checkout():
 
 @app.route("/payment-success", methods=["POST"])
 def payment_success():
-
+    import time
+    start_time = time.time()
     if "user_id" not in session:
         return redirect("/login")
 
@@ -722,6 +1122,7 @@ def payment_success():
     """, (user_id,))
 
     cart_items = cursor.fetchall()
+    
 
     if not cart_items:
         flash("Cart is empty.", "warning")
@@ -745,17 +1146,42 @@ def payment_success():
                 "danger"
             )
             return redirect("/cart")
-
+        
         total_amount += item[1] * item[2]
 
-    # Create CloudCart order
+    # Get delivery details from session
+    delivery_details = session.get("delivery_details")
+
+    if not delivery_details:
+        flash("Delivery details are missing.", "danger")
+        return redirect("/checkout")
+
+    # Create CloudCart order with delivery details
     cursor.execute(
         """
         INSERT INTO orders
-        (user_id, total_amount)
-        VALUES (%s, %s)
+        (
+            user_id,
+            total_amount,
+            delivery_name,
+            delivery_phone,
+            delivery_address,
+            delivery_city,
+            delivery_state,
+            delivery_pincode
+        )
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         """,
-        (user_id, total_amount)
+        (
+            user_id,
+            total_amount,
+            delivery_details["name"],
+            delivery_details["phone"],
+            delivery_details["address"],
+            delivery_details["city"],
+            delivery_details["state"],
+            delivery_details["pincode"]
+        )
     )
 
     order_id = cursor.lastrowid
@@ -804,8 +1230,20 @@ def payment_success():
     )
 
     db.commit()
+    
+    # Clear delivery details after successful order
+    session.pop("delivery_details", None)
+
     clear_product_cache()
-    flash("Payment successful! Order placed successfully.", "success")
+    print(
+    "TIME - Database writes:",
+    round(time.time() - start_time, 2),
+    "seconds"
+)
+    flash(
+        "Payment successful! Order placed successfully.",
+        "success"
+    )
 
     return redirect("/order-success")
 

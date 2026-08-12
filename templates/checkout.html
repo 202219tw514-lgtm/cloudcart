@@ -39,27 +39,115 @@
 
                     {% if razorpay_order_id %}
 
-                    <button
-                        id="pay-button"
-                        class="btn btn-primary btn-lg w-100">
+    <h4 class="text-start mb-3">
+        Delivery Address
+    </h4>
 
-                        Pay Now
+    <div class="text-start bg-light p-3 rounded-3 mb-4">
+        <p class="mb-1">
+            <strong>{{ session["delivery_details"]["name"] }}</strong>
+        </p>
 
-                    </button>
+        <p class="mb-1">
+            {{ session["delivery_details"]["phone"] }}
+        </p>
 
-                    {% else %}
+        <p class="mb-1">
+            {{ session["delivery_details"]["address"] }}
+        </p>
 
+        <p class="mb-1">
+            {{ session["delivery_details"]["city"] }},
+            {{ session["delivery_details"]["state"] }}
+        </p>
+
+        <p class="mb-0">
+            PIN: {{ session["delivery_details"]["pincode"] }}
+        </p>
+    </div>
+
+    <button
+        id="pay-button"
+        class="btn btn-primary btn-lg w-100">
+
+        Pay Now
+
+    </button>
+
+{% else %}
                     <form method="POST">
 
-                        <button
-                            type="submit"
-                            class="btn btn-primary btn-lg w-100">
+    <h4 class="text-start mb-3">
+        Delivery Details
+    </h4>
 
-                            Proceed to Payment
+    <div class="mb-3 text-start">
+        <label class="form-label">Full Name</label>
+        <input
+            type="text"
+            name="delivery_name"
+            class="form-control"
+            required>
+    </div>
 
-                        </button>
+    <div class="mb-3 text-start">
+        <label class="form-label">Phone Number</label>
+        <input
+            type="tel"
+            name="delivery_phone"
+            class="form-control"
+            pattern="[0-9]{10}"
+            maxlength="10"
+            required>
+    </div>
 
-                    </form>
+    <div class="mb-3 text-start">
+        <label class="form-label">Delivery Address</label>
+        <textarea
+            name="delivery_address"
+            class="form-control"
+            rows="3"
+            required></textarea>
+    </div>
+
+    <div class="mb-3 text-start">
+        <label class="form-label">City</label>
+        <input
+            type="text"
+            name="delivery_city"
+            class="form-control"
+            required>
+    </div>
+
+    <div class="mb-3 text-start">
+        <label class="form-label">State</label>
+        <input
+            type="text"
+            name="delivery_state"
+            class="form-control"
+            required>
+    </div>
+
+    <div class="mb-4 text-start">
+        <label class="form-label">PIN Code</label>
+        <input
+            type="text"
+            name="delivery_pincode"
+            class="form-control"
+            pattern="[0-9]{6}"
+            maxlength="6"
+            required>
+    </div>
+
+    <button
+        type="submit"
+        class="btn btn-primary btn-lg w-100">
+
+        Proceed to Payment
+
+    </button>
+
+</form>
 
                     {% endif %}
 
